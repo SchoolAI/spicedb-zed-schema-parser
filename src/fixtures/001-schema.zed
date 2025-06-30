@@ -1,0 +1,51 @@
+definition user {}
+
+definition resource_type_a {
+    relation primary_accessor: user
+    relation secondary_accessor: user
+    relation tertiary_accessor: user
+    relation general_user: user:*
+    relation member_of_group: group_a
+    relation initiator: user
+
+    permission can_modify = primary_accessor + secondary_accessor
+    permission can_access = primary_accessor + secondary_accessor + tertiary_accessor + general_user + initiator + member_of_group->can_access
+    permission can_list = primary_accessor + secondary_accessor + tertiary_accessor + initiator + member_of_group->can_access
+    permission is_shared = secondary_accessor + tertiary_accessor
+}
+
+definition resource_type_b {
+    relation primary_accessor: user
+    relation secondary_accessor: user
+    relation tertiary_accessor: user
+    relation general_user: user:*
+    relation member_of_group: group_a
+
+    permission can_modify = primary_accessor + secondary_accessor
+    permission can_access = primary_accessor + secondary_accessor + tertiary_accessor + general_user + member_of_group->can_access
+    permission can_list = primary_accessor + secondary_accessor + tertiary_accessor + member_of_group->can_access
+    permission is_shared = secondary_accessor + tertiary_accessor
+}
+
+definition group_a {
+    relation primary_accessor: user
+    relation secondary_accessor: user
+    relation tertiary_accessor: user
+    relation group_manager: group_b
+
+    permission can_modify = primary_accessor + secondary_accessor + group_manager->can_manage
+    permission can_access = primary_accessor + secondary_accessor + tertiary_accessor + group_manager->can_use_shared_assets + group_manager->can_manage
+    permission is_shared = secondary_accessor + tertiary_accessor
+}
+
+definition group_b {
+    relation admin: user
+    relation type_a_user: user
+    relation type_b_user: user
+
+    relation parent_group: group_b
+    relation child_group: group_b
+
+    permission can_use_shared_assets = type_a_user + child_group->can_use_shared_assets + can_manage
+    permission can_manage = admin + parent_group->can_manage
+}

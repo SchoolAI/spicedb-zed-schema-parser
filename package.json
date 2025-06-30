@@ -1,0 +1,32 @@
+{
+  "name": "@schoolai/spicedb-zed-schema-parser",
+  "version": "0.1.0",
+  "description": "SpiceDB .zed file format parser and analyzer written in Typescript",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["README.md", "dist/**", "src/**"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --apply ./src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@authzed/authzed-node": "1.2.3",
+    "chevrotain": "^11.0.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.0.6",
+    "tsup": "^8.0.2",
+    "typescript": "5.5.4",
+    "vitest": "3.0.6"
+  }
+}

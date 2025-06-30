@@ -1,0 +1,23 @@
+definition organization {
+	relation admin: user
+	permission read_all_docs = admin
+}
+
+definition folder {
+	relation parent: folder | organization
+	relation reader: user
+
+	// NOTE: since parent is either a folder OR an organization, if we want to check
+	// in both, we need to make sure \`read_all_docs\` has the *same name* in both folder
+	// and organization.
+	permission read_all_docs = reader + parent->read_all_docs
+}
+
+definition document {
+	relation parent: folder | organization
+	relation reader: user
+
+	permission view = reader + parent->read_all_docs
+}
+
+definition user {}
