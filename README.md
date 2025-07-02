@@ -7,7 +7,7 @@ A TypeScript library for parsing, analyzing, and generating type-safe SDKs from 
 This library provides a complete toolchain for working with SpiceDB schemas, transforming its schema DSL into type-safe TypeScript APIs. It consists of three main components:
 
 1. **Schema Parser** - Parses `.zed` files into structured ASTs using Chevrotain
-2. **Schema Analyzer** - Performs semantic analysis and type inference
+2. **Semantic Analyzer** - Performs semantic analysis and type inference on the parsed AST
 3. **SDK Generator** - Creates type-safe TypeScript SDKs from analyzed schemas
 
 Additionally, it includes a **Fluent Builder Library** that provides an ergonomic API for SpiceDB operations, serving as a bridge between the verbose `@authzed/authzed-node` gRPC client and your type-safe generated SDK.
@@ -366,6 +366,10 @@ pnpm run lint:fix
 5. Commit your changes: `git commit -m 'Add amazing feature'`
 6. Push to the branch: `git push origin feature/amazing-feature`
 7. Open a Pull Request
+
+## License
+
+Open source under the MIT license
 
 ## Related Projects
 
