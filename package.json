@@ -2,6 +2,27 @@
   "name": "@schoolai/spicedb-zed-schema-parser",
   "version": "0.1.0",
   "description": "SpiceDB .zed file format parser and analyzer written in Typescript",
+  "main": "./dist/index.js",
+  "author": "SchoolAI",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/SchoolAI/spicedb-zed-schema-parser#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SchoolAI/spicedb-zed-schema-parser"
+  },
+  "bugs": {
+    "url": "https://github.com/SchoolAI/spicedb-zed-schema-parser/issues"
+  },
+  "keywords": [
+    "spicedb",
+    "zed",
+    "schema",
+    "parser",
+    "authz"
+  ],
   "type": "module",
   "exports": {
     ".": {
