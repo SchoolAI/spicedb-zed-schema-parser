@@ -23,14 +23,14 @@ Convert string-based SpiceDB operations into compile-time checked TypeScript:
 await client.checkPermission({
   resource: {
     objectType: "document",
-    objectId: "doc1"
+    objectId: "doc1",
   },
   permission: "edit", // Could be misspelled
   subject: {
     object: {
       objectType: "user",
-      objectId: "alice"
-    }
+      objectId: "alice",
+    },
   },
 });
 
@@ -83,7 +83,7 @@ Automatically generate SDKs that stay in sync with schema changes, preventing ru
 ## Installation
 
 ```bash
-npm install @schoolai/spicedb-zed-schema-parser
+pnpm install @schoolai/spicedb-zed-schema-parser
 ```
 
 ## Quick Start
@@ -201,9 +201,13 @@ const hasPermission = await perms
 // Batch operations
 await perms
   .batch()
-  .grant("viewer").subject("user:charlie").resource("folder:f1")
+  .grant("viewer")
+  .subject("user:charlie")
+  .resource("folder:f1")
   .and()
-  .revoke("editor").subject("user:alice").resource("document:doc1")
+  .revoke("editor")
+  .subject("user:alice")
+  .resource("document:doc1")
   .and()
   .commit();
 
@@ -321,9 +325,10 @@ Common error types:
                    │ AST          │    │ Augmented AST   │    │ TypeScript   │
                    │              │    │ + Type Info     │    │ SDK Code     │
                    └──────────────┘    └─────────────────┘    └──────────────┘
-
+                                                                       ▲
+                                                                       │
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Fluent Builder Library (Independent)                                        │
+│ Fluent Builder Library                                                      │
 │ ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐                  │
 │ │ Operations  │───▶│ Fluent API   │───▶│ SpiceDB Client  │                  │
 │ │ Builder     │    │ (Chainable)  │    │ (gRPC)          │                  │
@@ -336,20 +341,20 @@ Common error types:
 ### Building
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### Testing
 
 ```bash
-npm test
+pnpm test
 ```
 
 ### Linting
 
 ```bash
-npm run lint
-npm run lint:fix
+pnpm run lint
+pnpm run lint:fix
 ```
 
 ## Contributing
@@ -357,7 +362,7 @@ npm run lint:fix
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes and add tests
-4. Run the test suite: `npm test`
+4. Run the test suite: `pnpm test`
 5. Commit your changes: `git commit -m 'Add amazing feature'`
 6. Push to the branch: `git push origin feature/amazing-feature`
 7. Open a Pull Request
