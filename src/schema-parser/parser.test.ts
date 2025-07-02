@@ -210,9 +210,7 @@ describe('parseSpiceDBSchema for 001-schema.zed', () => {
     it('should not have doc comments on definition, relations or permissions', () => {
       expect(def.docComment).toBeUndefined()
       def.relations.forEach(rel => expect(rel.docComment).toBeUndefined())
-      def.permissions.forEach(perm =>
-        expect(perm.docComment).toBeUndefined(),
-      )
+      def.permissions.forEach(perm => expect(perm.docComment).toBeUndefined())
     })
   })
 
@@ -223,7 +221,9 @@ describe('parseSpiceDBSchema for 001-schema.zed', () => {
     })
 
     it('should parse relations correctly', () => {
-      assertRelationTypes(findRelation(def, 'primary_accessor'), [{ typeName: 'user' }])
+      assertRelationTypes(findRelation(def, 'primary_accessor'), [
+        { typeName: 'user' },
+      ])
       assertRelationTypes(findRelation(def, 'secondary_accessor'), [
         { typeName: 'user' },
       ])
@@ -260,9 +260,18 @@ describe('parseSpiceDBSchema for 001-schema.zed', () => {
     it('should not have doc comments on definition, relations or permissions', () => {
       expect(def.docComment).toBeUndefined()
       def.relations.forEach(rel => expect(rel.docComment).toBeUndefined())
-      def.permissions.forEach(perm =>
-        expect(perm.docComment).toBeUndefined(),
+      def.permissions.forEach(perm => expect(perm.docComment).toBeUndefined())
+    })
+
+    it('should correctly handle and ignore multi-line comments', () => {
+      const result = parseSpiceDBSchema(schema1)
+      expect(result.errors).toHaveLength(0)
+
+      const resourceTypeBDef = result.ast?.definitions.find(
+        def => def.name === 'resource_type_b',
       )
+      expect(resourceTypeBDef).toBeDefined()
+      expect(resourceTypeBDef?.docComment).toBeUndefined()
     })
   })
 
@@ -304,9 +313,7 @@ describe('parseSpiceDBSchema for 001-schema.zed', () => {
 
     it('should not have doc comments on definition or permissions', () => {
       expect(def.docComment).toBeUndefined()
-      def.permissions.forEach(perm =>
-        expect(perm.docComment).toBeUndefined(),
-      )
+      def.permissions.forEach(perm => expect(perm.docComment).toBeUndefined())
     })
   })
 
@@ -316,9 +323,7 @@ describe('parseSpiceDBSchema for 001-schema.zed', () => {
       def = findDefinition(ast, 'group_b')
     })
     it('should parse relations correctly', () => {
-      assertRelationTypes(findRelation(def, 'admin'), [
-        { typeName: 'user' },
-      ])
+      assertRelationTypes(findRelation(def, 'admin'), [{ typeName: 'user' }])
       assertRelationTypes(findRelation(def, 'type_a_user'), [
         { typeName: 'user' },
       ])

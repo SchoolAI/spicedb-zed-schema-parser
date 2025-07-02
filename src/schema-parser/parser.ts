@@ -60,16 +60,16 @@ const Any = createToken({ name: 'Any', pattern: /any/, longer_alt: Identifier })
 const All = createToken({ name: 'All', pattern: /all/, longer_alt: Identifier })
 
 // Comments
+const BlockComment = createToken({
+  name: 'BlockComment',
+  pattern: /\/\*[\s\S]*?\*\//,
+  group: Lexer.SKIPPED,
+})
+
 const DocComment = createToken({
   name: 'DocComment',
   pattern: /\/\*\*[\s\S]*?\*\//,
-  // group: 'comments', // Removed: This group might prevent the token from being correctly attached to CST nodes for rules.
-})
-
-const BlockComment = createToken({
-  name: 'BlockComment',
-  pattern: /\/\*(?!\*)[\s\S]*?\*\//,
-  group: Lexer.SKIPPED,
+  group: 'comments',
 })
 
 const LineComment = createToken({

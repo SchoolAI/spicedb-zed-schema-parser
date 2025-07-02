@@ -13,6 +13,10 @@ definition resource_type_a {
     permission can_list = primary_accessor + secondary_accessor + tertiary_accessor + initiator + member_of_group->can_access
     permission is_shared = secondary_accessor + tertiary_accessor
 }
+/**
+ * This is a multiline comment that should be correctly
+ * parsed by the schema parser, but ignored during semantic analysis.
+ */
 
 definition resource_type_b {
     relation primary_accessor: user
