@@ -9,8 +9,8 @@ export default defineConfig(
     clean: true,
     dts: true, // Generate .d.ts files
     bundle: true, // Bundle Chevrotain and any other deps
-    format: ['esm'],
-    entry: ['src/index.ts'],
+    format: ['esm', 'cjs'],
+    entry: ['src/index.ts', 'src/builder/index.ts'],
     // Allows overriding via tsup CLI flags
     ...cliOptions,
   }),
