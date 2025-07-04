@@ -6,8 +6,9 @@ export default defineConfig(
     sourcemap: true,
     clean: true,
     dts: true, // Generate .d.ts files
-    format: ['esm'], // Output ESModule
-    entry: ['src/index.ts', 'src/types.ts'],
+    bundle: true, // Bundle Chevrotain and any other deps
+    format: ['esm', 'cjs'],
+    entry: ['src/index.ts'],
     // Allows overriding via tsup CLI flags
     ...cliOptions,
   }),

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "SpiceDB .zed file format parser and analyzer written in Typescript",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "author": "SchoolAI",
   "license": "MIT",
   "publishConfig": {
@@ -27,11 +28,12 @@
   "exports": {
     ".": {
       "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
-  "files": ["README.md", "dist/**", "src/**"],
+  "files": ["README.md", "dist/**", "src/**", "package.json"],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit --skipLibCheck",
