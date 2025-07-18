@@ -198,18 +198,10 @@ const hasPermission = await perms
   .resource("document:doc1")
   .execute();
 
-// Batch operations
-await perms
-  .batch()
-  .grant("viewer")
-  .subject("user:charlie")
-  .resource("folder:f1")
-  .and()
-  .revoke("editor")
-  .subject("user:alice")
-  .resource("document:doc1")
-  .and()
-  .commit();
+perms.batch()
+  .add(perms.grant("viewer").subject("user:charlie").resource("folder:f1"))
+  .add(perms.revoke("editor").subject("user:alice").resource("document:doc1"))
+  .execute()
 
 // Use static builders for pure operations
 const deleteOp = Operations.delete().where({

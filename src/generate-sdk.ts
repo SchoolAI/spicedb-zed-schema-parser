@@ -10,7 +10,7 @@ import {
  */
 export function generateSDK(
   schema: AugmentedSchemaAST,
-  parserImport = '@schoolai/spicedb-zed-schema-parser',
+  parserImport = '@schoolai/spicedb-zed-schema-parser/builder',
 ): string {
   const objectDefs = schema.definitions.filter(
     (def): def is AugmentedObjectTypeDefinition => def.type === 'definition',

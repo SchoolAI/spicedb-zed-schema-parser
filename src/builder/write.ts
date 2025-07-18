@@ -34,7 +34,7 @@ export class WriteOperation implements Operation<string | null> {
     return this
   }
 
-  async execute(client: SpiceDBClient): Promise<string | null> {
+  toRelationshipUpdates(): v1.RelationshipUpdate[] {
     const updates: v1.RelationshipUpdate[] = []
 
     for (const subjectRef of this.subjects) {
@@ -68,7 +68,14 @@ export class WriteOperation implements Operation<string | null> {
       }
     }
 
+    return updates
+  }
+
+  async execute(client: SpiceDBClient): Promise<string | null> {
+    const updates = this.toRelationshipUpdates()
+
     const request = v1.WriteRelationshipsRequest.create({ updates })
+
     const response = await client.writeRelationships(request)
 
     return response.writtenAt?.token || null

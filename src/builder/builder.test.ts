@@ -97,13 +97,10 @@ describe('Permissions Builder', () => {
 
   it('should build and execute a batch transaction', async () => {
     // biome-ignore format: one-line-per-operation
-    const result = await perms
-      .batch()
-      .grant('viewer').subject('user:charlie').resource('folder:f1')
-      .and()
-      .revoke('editor').subject('user:alice').resource('document:doc1')
-      .and()
-      .commit();
+    const result = await perms.batch()
+      .add(perms.grant('viewer').subject('user:charlie').resource('folder:f1'))
+      .add(perms.revoke('editor').subject('user:alice').resource('document:doc1'))
+      .execute();
 
     expect(result.succeeded).toBe(true)
     expect(result.operationCount).toBe(2)
