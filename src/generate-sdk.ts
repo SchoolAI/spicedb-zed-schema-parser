@@ -94,6 +94,8 @@ function generateFind(def: AugmentedObjectTypeDefinition): string {
 function generateCheck(def: AugmentedObjectTypeDefinition): string {
   const resourceType = `${toPascalCase(def.name)}Resource`
   let code = '    check: {\n'
+
+  // Generate permission checks
   for (const perm of def.permissions) {
     const subjectTypeLiterals = [
       ...new Set(perm.inferredSubjectTypes?.map(t => `'${t.typeName}'`)),
@@ -101,6 +103,25 @@ function generateCheck(def: AugmentedObjectTypeDefinition): string {
     const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
     code += `      ${toCamelCase(perm.name)}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${perm.name}').subject(subject).resource(resource),\n`
   }
+
+  // Generate relation checks
+  for (const rel of def.relations) {
+    const subjectTypeLiterals = [
+      ...new Set(rel.types.map(t => `'${t.typeName}'`)),
+    ].join(' | ')
+    const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
+
+    let checkName = `is${toPascalCase(rel.name)}`
+    if (rel.docComment) {
+      const checkMatch = rel.docComment.match(/@check:\s*(\w+)/)
+      if (checkMatch?.[1]) {
+        checkName = checkMatch[1]
+      }
+    }
+
+    code += `      ${checkName}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${rel.name}').subject(subject).resource(resource),\n`
+  }
+
   code += '    },\n'
   return code
 }
