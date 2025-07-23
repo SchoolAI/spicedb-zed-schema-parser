@@ -94,6 +94,8 @@ function generateFind(def: AugmentedObjectTypeDefinition): string {
 function generateCheck(def: AugmentedObjectTypeDefinition): string {
   const resourceType = `${toPascalCase(def.name)}Resource`
   let code = '    check: {\n'
+
+  // Generate permission checks
   for (const perm of def.permissions) {
     const subjectTypeLiterals = [
       ...new Set(perm.inferredSubjectTypes?.map(t => `'${t.typeName}'`)),
@@ -101,6 +103,33 @@ function generateCheck(def: AugmentedObjectTypeDefinition): string {
     const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
     code += `      ${toCamelCase(perm.name)}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${perm.name}').subject(subject).resource(resource),\n`
   }
+
+  // Generate relation checks
+  for (const rel of def.relations) {
+    console.log(`Processing relation ${rel.name} in ${def.name}:`, {
+      docComment: rel.docComment,
+      types: rel.types,
+    })
+
+    const subjectTypeLiterals = [
+      ...new Set(rel.types.map(t => `'${t.typeName}'`)),
+    ].join(' | ')
+    const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
+
+    // Check for @check: override in docComment
+    let checkName = `is${toPascalCase(rel.name)}`
+    if (rel.docComment) {
+      console.log(`Found docComment for ${rel.name}: "${rel.docComment}"`)
+      const checkMatch = rel.docComment.match(/@check:\s*(\w+)/)
+      if (checkMatch) {
+        checkName = checkMatch[1]!
+        console.log(`Found @check override: ${checkName}`)
+      }
+    }
+
+    code += `      ${checkName}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${rel.name}').subject(subject).resource(resource),\n`
+  }
+
   code += '    },\n'
   return code
 }
