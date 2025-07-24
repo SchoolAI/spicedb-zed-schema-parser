@@ -1,6 +1,9 @@
 import { v1 } from '@authzed/authzed-node'
 import { LookupResult, Operation, parseReference, SpiceDBClient } from './types'
 
+// Do we really need to have a builder pattern for this?
+// I mean, lookup-resources and lookup-subjects need to be able to take a resource or subject and a permission and a resource or subject type and return a list of results.
+
 /**
  * Lookup operation for finding accessible resources or subjects with permissions
  */
@@ -54,14 +57,19 @@ export class LookupOperation implements Operation<LookupResult[]> {
       throw new Error('Lookup operation requires permission')
     }
 
-    if (this.lookupType === 'resources' && this.subjectFilter) {
+    if (
+      this.lookupType === 'resources' &&
+      this.resourceFilter?.type &&
+      this.subjectFilter?.id &&
+      this.permission
+    ) {
       const request = v1.LookupResourcesRequest.create({
-        resourceObjectType: this.resourceFilter?.type || 'document',
+        resourceObjectType: this.resourceFilter.type,
         permission: this.permission,
         subject: v1.SubjectReference.create({
           object: v1.ObjectReference.create({
             objectType: this.subjectFilter.type,
-            objectId: this.subjectFilter.id!,
+            objectId: this.subjectFilter.id,
           }),
         }),
         consistency: this.consistency,
@@ -73,7 +81,7 @@ export class LookupOperation implements Operation<LookupResult[]> {
       for (const result of stream) {
         if (result.resourceObjectId) {
           results.push({
-            type: this.resourceFilter?.type || 'document',
+            type: this.resourceFilter.type,
             id: result.resourceObjectId,
             permissionship: result.permissionship,
           })
@@ -82,14 +90,19 @@ export class LookupOperation implements Operation<LookupResult[]> {
       return results
     }
 
-    if (this.lookupType === 'subjects' && this.resourceFilter?.id) {
+    if (
+      this.lookupType === 'subjects' &&
+      this.resourceFilter?.id &&
+      this.subjectFilter?.type &&
+      this.permission
+    ) {
       const request = v1.LookupSubjectsRequest.create({
         resource: v1.ObjectReference.create({
           objectType: this.resourceFilter.type,
           objectId: this.resourceFilter.id,
         }),
         permission: this.permission,
-        subjectObjectType: this.subjectFilter?.type || 'user',
+        subjectObjectType: this.subjectFilter.type,
         consistency: this.consistency,
       })
 
@@ -99,7 +112,7 @@ export class LookupOperation implements Operation<LookupResult[]> {
       for (const result of stream) {
         if (result.subject?.subjectObjectId) {
           results.push({
-            type: this.subjectFilter?.type || 'user',
+            type: this.subjectFilter.type,
             id: result.subject.subjectObjectId,
             permissionship: result.subject.permissionship,
           })

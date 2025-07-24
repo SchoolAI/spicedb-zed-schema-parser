@@ -46,6 +46,8 @@ export type Resource<T extends string> = \`\${T}:\${string}\`;
     code += generateCheck(def)
     // Generate find operations
     code += generateFind(def)
+    // Generate lookup operations
+    code += generateLookup(def)
     code += `  },\n`
   }
 
@@ -130,6 +132,62 @@ function generateCheck(def: AugmentedObjectTypeDefinition): string {
     code += `      ${checkName}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${rel.name}').subject(subject).resource(resource),\n`
   }
 
+  code += '    },\n'
+  return code
+}
+
+// --------------- LOOKUP OPERATIONS ---------------
+// This should put a "lookup" operation for each definition with resources and subjects attributes each.
+// Example:
+// lookup: {
+//   resources: (subject: Subject<string>) => PermissionOperations.lookup('resourcesAccessibleBy').subject(subject),
+//   subjects: (resource: Resource<string>) => PermissionOperations.lookup('subjectsWithAccessTo').resource(resource),
+// }
+// Here are two examples of what they should be able to do, but we need something more generic.
+// Example 1:
+// PermissionOperations.lookup()
+// .subjectsWithAccessTo(`space_old:${spaceId}`)
+// .withPermission('collected')
+// .ofType('collection')
+// .withConsistency(assignResult || '')
+// .execute(spice)
+
+// Example 2:
+// PermissionOperations.lookup()
+// .resourcesAccessibleBy(`collection:${collectionId1}`)
+// .withPermission('collected')
+// .ofType('space_old')
+// .withConsistency(assignResult || '')
+// .execute(spice)
+
+// lookup: {
+// resources: (subject: Subject<string>) => PermissionOperations.lookup('resourcesAccessibleBy').subject(subject),
+//   subjects: (resource: Resource<string>) => PermissionOperations.lookup('subjectsWithAccessTo').resource(resource),
+// }
+
+// The lookup operation should be able to lookup resources by subject and subjects by resource.
+// Can you think of a pattern that would allow us to generate the lookup operations for each definition with resources and subjects attributes each?
+function generateLookup(def: AugmentedObjectTypeDefinition): string {
+  let code = '    lookup: {\n'
+  const permissionLiterals = [
+    ...new Set(def.permissions.map(p => `'${p.name}'`)),
+  ].join(' | ')
+
+  for (const operation of ['resources', 'subjects']) {
+    const typeLiterals = [
+      ...new Set(
+        def.relations.flatMap(r => r.types.map(t => `'${t.typeName}'`)),
+      ),
+    ].join(' | ')
+
+    if (operation === 'resources') {
+      const subjectTypes = `Subject<${typeLiterals || 'never'}>`
+      code += `      ${operation}: (subject: ${subjectTypes}, permission: ${permissionLiterals}, resourceType: ${typeLiterals}) => PermissionOperations.lookup().resourcesAccessibleBy(subject).withPermission(permission).ofType(resourceType),\n`
+    } else {
+      const resourceTypes = `Resource<${typeLiterals || 'never'}>`
+      code += `      ${operation}: (resource: ${resourceTypes}, permission: ${permissionLiterals}, subjectType: ${typeLiterals}) => PermissionOperations.lookup().subjectsWithAccessTo(resource).withPermission(permission).ofType(subjectType),\n`
+    }
+  }
   code += '    },\n'
   return code
 }
