@@ -1,0 +1,12 @@
+definition some_namespace/some_object_type {
+    relation viewer: user
+    permission view = viewer
+}
+
+definition user {}
+
+definition some/really/deep/namespace/resource {
+    relation owner: user
+    relation viewer: user | some_namespace/some_object_type#viewer
+    permission read = viewer + owner
+}
