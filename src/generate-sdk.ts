@@ -62,7 +62,7 @@ function generateGrantRevoke(def: AugmentedObjectTypeDefinition): string {
       ...new Set(rel.types.map(t => `'${t.typeName}'`)),
     ].join(' | ')
     const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
-    code += `      ${toCamelCase(rel.name)}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.grant('${rel.name}').subject(subject).resource(resource),\n`
+    code += `      ${toCamelCase(rel.name)}: (subject: ${subjectTypes} | ${subjectTypes}[], resource: ${resourceType}) => PermissionOperations.grant('${rel.name}').subject(subject).resource(resource),\n`
   }
   code += '    },\n'
   code += '    revoke: {\n'
@@ -71,7 +71,7 @@ function generateGrantRevoke(def: AugmentedObjectTypeDefinition): string {
       ...new Set(rel.types.map(t => `'${t.typeName}'`)),
     ].join(' | ')
     const subjectTypes = `Subject<${subjectTypeLiterals || 'never'}>`
-    code += `      ${toCamelCase(rel.name)}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.revoke('${rel.name}').subject(subject).resource(resource),\n`
+    code += `      ${toCamelCase(rel.name)}: (subject: ${subjectTypes} | ${subjectTypes}[], resource: ${resourceType}) => PermissionOperations.revoke('${rel.name}').subject(subject).resource(resource),\n`
   }
   code += '    },\n'
   return code
