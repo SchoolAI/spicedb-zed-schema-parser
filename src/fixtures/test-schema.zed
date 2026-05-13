@@ -1,0 +1,49 @@
+definition user {}
+
+definition team {
+    relation member: user
+    relation admin: user
+
+    permission manage = admin
+    permission collaborate = admin + member
+}
+
+definition folder {
+    relation owner: user
+    /** @check: isCollaborator */
+    relation collaborator: user | team#member
+    relation public: user:*
+    relation parent: organization
+
+    permission edit = owner + collaborator + parent->admin_access
+    permission view = owner + collaborator + public + parent->member_access
+    permission share = owner
+}
+
+definition document {
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation parent_folder: folder
+
+    permission edit = owner + editor + parent_folder->edit
+    permission view = owner + editor + viewer + parent_folder->view
+    permission delete = owner
+    permission shared = editor + viewer
+}
+
+definition organization {
+    relation admin: user
+    relation member: user
+    relation parent_org: organization
+    relation child_org: organization
+
+    permission admin_access = admin + parent_org->admin_access
+    permission member_access = admin + member + child_org->member_access
+    permission full_member = admin + member
+    permission subtree_member = full_member + child_org->subtree_member
+}
+
+definition tag {
+    relation created_by: user
+}
