@@ -46,12 +46,10 @@ export type Resource<T extends string> = \`\${T}:\${string}\`;
       continue
     }
     code += `  ${toCamelCase(def.name)}: {\n`
-    // Generate grant/revoke operations
     code += generateGrantRevoke(def)
-    // Generate check operations
     code += generateCheck(def)
-    // Generate find operations
     code += generateFind(def)
+    code += generateLookup(def)
     code += `  },\n`
   }
 
@@ -128,6 +126,27 @@ function generateCheck(def: AugmentedObjectTypeDefinition): string {
     code += `      ${checkName}: (subject: ${subjectTypes}, resource: ${resourceType}) => PermissionOperations.check('${rel.name}').subject(subject).resource(resource),\n`
   }
 
+  code += '    },\n'
+  return code
+}
+
+function generateLookup(def: AugmentedObjectTypeDefinition): string {
+  const resourceType = `${toPascalCase(def.name)}Resource`
+  const permissionLiterals = [
+    ...new Set(def.permissions.map(p => `'${p.name}'`)),
+  ].join(' | ')
+
+  const subjectTypeLiterals = [
+    ...new Set(
+      def.relations.flatMap(r => r.types.map(t => `'${t.typeName}'`)),
+    ),
+  ].join(' | ')
+
+  if (!permissionLiterals) return ''
+
+  let code = '    lookup: {\n'
+  code += `      resources: (subject: Subject<${subjectTypeLiterals || 'never'}>, permission: ${permissionLiterals}) => PermissionOperations.lookup().resourcesAccessibleBy(subject).withPermission(permission).ofType('${def.name}'),\n`
+  code += `      subjects: (resource: ${resourceType}, permission: ${permissionLiterals}, subjectType: ${subjectTypeLiterals || 'never'}) => PermissionOperations.lookup().subjectsWithAccessTo(resource).withPermission(permission).ofType(subjectType),\n`
   code += '    },\n'
   return code
 }

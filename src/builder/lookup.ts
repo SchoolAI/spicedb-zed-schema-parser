@@ -122,7 +122,8 @@ export class LookupOperation implements Operation<LookupResult[]> {
   }
 
   /**
-   * Special helper for looking up subjects with multiple permission levels
+   * Look up subjects across multiple permission levels in parallel,
+   * returning a map of subjectId -> highest permission (first in array wins).
    */
   async withPermissions(
     permissions: string[],
@@ -132,35 +133,41 @@ export class LookupOperation implements Operation<LookupResult[]> {
       throw new Error('Multiple permission lookup requires a specific resource')
     }
 
-    // This method needs a client, either passed in or error
     if (!client) {
       throw new Error(
         'withPermissions requires a client. Use execute(client) or pass client as second parameter.',
       )
     }
 
-    const resultMap = new Map<string, string>()
+    const allResults = await Promise.all(
+      permissions.map(async (permission) => {
+        const request = v1.LookupSubjectsRequest.create({
+          resource: v1.ObjectReference.create({
+            objectType: this.resourceFilter!.type,
+            objectId: this.resourceFilter!.id!,
+          }),
+          permission,
+          subjectObjectType: this.subjectFilter?.type || 'user',
+          consistency: this.consistency,
+        })
 
-    // Query each permission level
-    for (const permission of permissions) {
-      const request = v1.LookupSubjectsRequest.create({
-        resource: v1.ObjectReference.create({
-          objectType: this.resourceFilter.type,
-          objectId: this.resourceFilter.id,
-        }),
-        permission,
-        subjectObjectType: this.subjectFilter?.type || 'user',
-        consistency: this.consistency,
-      })
+        const stream = await client.lookupSubjects(request)
 
-      const stream = await client.lookupSubjects(request)
-
-      for (const result of stream) {
-        if (result.subject?.subjectObjectId) {
-          // Only set if not already set (maintains hierarchy)
-          if (!resultMap.has(result.subject.subjectObjectId)) {
-            resultMap.set(result.subject.subjectObjectId, permission)
+        const subjects: string[] = []
+        for (const result of stream) {
+          if (result.subject?.subjectObjectId) {
+            subjects.push(result.subject.subjectObjectId)
           }
+        }
+        return { permission, subjects }
+      }),
+    )
+
+    const resultMap = new Map<string, string>()
+    for (const { permission, subjects } of allResults) {
+      for (const id of subjects) {
+        if (!resultMap.has(id)) {
+          resultMap.set(id, permission)
         }
       }
     }
