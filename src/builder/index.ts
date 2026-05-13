@@ -1,3 +1,4 @@
+export * from './bulk-check'
 export * from './check'
 export * from './delete'
 export * from './lookup'

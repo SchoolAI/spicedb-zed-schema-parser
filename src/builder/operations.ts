@@ -1,3 +1,4 @@
+import { BulkCheckOperation } from './bulk-check'
 import { BoundCheckOperation, CheckOperation } from './check'
 import { BoundDeleteOperation, DeleteOperation } from './delete'
 import { BoundLookupOperation, LookupOperation } from './lookup'
@@ -58,6 +59,17 @@ export class PermissionOperations {
    */
   static lookup(): LookupOperation {
     return new LookupOperation()
+  }
+
+  /**
+   * Create a bulk permission check operation
+   */
+  static bulkCheck(
+    permission: string,
+    subject: string,
+    resources: string[],
+  ): BulkCheckOperation {
+    return new BulkCheckOperation(permission, subject, resources)
   }
 }
 
