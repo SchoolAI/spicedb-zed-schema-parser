@@ -7,7 +7,6 @@ import { Operation, parseReference, SpiceDBClient } from './types'
 export class WriteOperation implements Operation<string | null> {
   protected subjects: string[] = []
   protected resources: string[] = []
-  protected consistency?: v1.Consistency
 
   constructor(
     protected operation: 'grant' | 'revoke',
@@ -21,16 +20,6 @@ export class WriteOperation implements Operation<string | null> {
 
   resource(ref: string | string[]): this {
     this.resources = Array.isArray(ref) ? ref : [ref]
-    return this
-  }
-
-  withConsistency(token: string): this {
-    this.consistency = v1.Consistency.create({
-      requirement: {
-        oneofKind: 'atLeastAsFresh',
-        atLeastAsFresh: v1.ZedToken.create({ token }),
-      },
-    })
     return this
   }
 
@@ -90,7 +79,6 @@ export class WriteOperation implements Operation<string | null> {
       relation: this.relation,
       subjects: this.subjects,
       resources: this.resources,
-      consistency: this.consistency,
     }
   }
 }
