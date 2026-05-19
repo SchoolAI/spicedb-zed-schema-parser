@@ -412,6 +412,133 @@ describe('LookupOperation: resources, subjects, and multi-permission', () => {
   })
 })
 
+describe('QueryOperation (find): readRelationships', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('find().relation().subject() sends correct ReadRelationshipsRequest', async () => {
+    mockReadRelationships.mockResolvedValueOnce([
+      {
+        relationship: {
+          resource: { objectType: 'document', objectId: 'doc1' },
+          relation: 'editor',
+          subject: { object: { objectType: 'user', objectId: 'alice' } },
+        },
+      },
+      {
+        relationship: {
+          resource: { objectType: 'document', objectId: 'doc2' },
+          relation: 'editor',
+          subject: { object: { objectType: 'user', objectId: 'alice' } },
+        },
+      },
+    ] as any)
+
+    const results = await PermissionOperations.find()
+      .relation('editor')
+      .subject('user:alice')
+      .execute(mockClient)
+
+    expect(mockReadRelationships).toHaveBeenCalledOnce()
+    const request = mockReadRelationships.mock.calls[0]![0]
+    expect(request.relationshipFilter).toMatchObject({
+      optionalRelation: 'editor',
+      optionalSubjectFilter: expect.objectContaining({
+        subjectType: 'user',
+        optionalSubjectId: 'alice',
+      }),
+    })
+
+    expect(results).toEqual([
+      {
+        type: 'document',
+        id: 'doc1',
+        relation: 'editor',
+        subjectType: 'user',
+        subjectId: 'alice',
+      },
+      {
+        type: 'document',
+        id: 'doc2',
+        relation: 'editor',
+        subjectType: 'user',
+        subjectId: 'alice',
+      },
+    ])
+  })
+
+  it('find().relation().subject() with wildcard only sets subjectType', async () => {
+    mockReadRelationships.mockResolvedValueOnce([
+      {
+        relationship: {
+          resource: { objectType: 'folder', objectId: 'f1' },
+          relation: 'collaborator',
+          subject: { object: { objectType: 'user', objectId: 'bob' } },
+        },
+      },
+    ] as any)
+
+    const results = await PermissionOperations.find()
+      .relation('collaborator')
+      .subject('user:*')
+      .execute(mockClient)
+
+    const request = mockReadRelationships.mock.calls[0]![0]
+    expect(request.relationshipFilter).toMatchObject({
+      optionalRelation: 'collaborator',
+      optionalSubjectFilter: expect.objectContaining({
+        subjectType: 'user',
+      }),
+    })
+    expect(
+      request.relationshipFilter?.optionalSubjectFilter?.optionalSubjectId,
+    ).toBe('')
+
+    expect(results).toEqual([
+      {
+        type: 'folder',
+        id: 'f1',
+        relation: 'collaborator',
+        subjectType: 'user',
+        subjectId: 'bob',
+      },
+    ])
+  })
+
+  it('find().relation() without subject sends only optionalRelation filter', async () => {
+    mockReadRelationships.mockResolvedValueOnce([
+      {
+        relationship: {
+          resource: { objectType: 'document', objectId: 'doc1' },
+          relation: 'viewer',
+          subject: { object: { objectType: 'user', objectId: 'charlie' } },
+        },
+      },
+    ] as any)
+
+    const results = await PermissionOperations.find()
+      .relation('viewer')
+      .execute(mockClient)
+
+    const request = mockReadRelationships.mock.calls[0]![0]
+    expect(request.relationshipFilter).toMatchObject({
+      optionalRelation: 'viewer',
+    })
+    expect(request.relationshipFilter?.optionalSubjectFilter).toBeUndefined()
+
+    expect(results).toEqual([
+      {
+        type: 'document',
+        id: 'doc1',
+        relation: 'viewer',
+        subjectType: 'user',
+        subjectId: 'charlie',
+      },
+    ])
+  })
+})
+
 describe('Validation errors', () => {
   it('lookup().execute() without permission set throws', async () => {
     const op = PermissionOperations.lookup()
