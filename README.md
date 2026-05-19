@@ -35,7 +35,9 @@ await client.checkPermission({
 });
 
 // ✅ Type-safe: generated from your schema
-await permissions.document.check.edit("user:alice", "document:doc1").execute();
+await permissions.document.check
+  .edit("user:alice", "document:doc1")
+  .execute(spicedbClient);
 ```
 
 ### 2. **Schema Validation**
@@ -51,7 +53,7 @@ Catch schema errors early with comprehensive semantic analysis:
 
 Replace verbose gRPC objects with fluent, chainable APIs:
 
-(Note: this layer is not type-safe, but you can drop down to it if the type-safe SDK you generate from your schema.zed file is insufficient to the task).
+The builder layer is intentionally string-based — drop down to it when you need dynamic relations or operations whose shape isn't known until runtime. The generated SDK is a thin, type-safe facade over these same primitives.
 
 ```typescript
 // ❌ Verbose gRPC style
@@ -135,6 +137,7 @@ async function generatePermissionsSDK() {
 definition user {}
 
 definition document {
+    /** @check: isOwnedBy */
     relation owner: user
     relation editor: user
     relation viewer: user
@@ -153,28 +156,171 @@ definition folder {
 }
 ```
 
+> Tip: the `@check: <name>` directive in a relation's doc comment renames its auto-generated relation check (see [Generated SDK Usage](#generated-sdk-usage)). Without it, `relation owner: user` would surface as `permissions.document.check.isOwner(...)`; with it, you get `permissions.document.check.isOwnedBy(...)`.
+
+## Generated SDK Shape
+
+For each definition with relations or permissions, the generator emits a typed surface under `permissions.<type>`:
+
+| Surface                                                                              | What it does                                                |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `permissions.<type>.grant.<relation>(subject, resource)`                             | Grant a relation — `subject` accepts a single ref or array  |
+| `permissions.<type>.revoke.<relation>(subject, resource)`                            | Revoke a relation — also accepts arrays                     |
+| `permissions.<type>.check.<permission>(subject, resource)`                           | Type-safe permission check                                  |
+| `permissions.<type>.check.is<Relation>(subject, resource)`                           | Auto-generated relation check (rename via `@check:`)        |
+| `permissions.<type>.checkBulk(permission, subject, resources[])`                     | Single `CheckBulkPermissions` gRPC call                     |
+| `permissions.<type>.find.by<Relation>(subject)`                                      | Find resources where subject holds `<Relation>`             |
+| `permissions.<type>.lookup.resources(subject, permission)`                           | `LookupResources` for accessible objects                    |
+| `permissions.<type>.lookup.subjects(resource, permission, subjectType)`              | `LookupSubjects` for who can do something                   |
+| `permissions.<type>.deleteAll({ relation?, subjectType?, subjectId?, resourceId? })` | Filtered bulk delete                                        |
+| `permissions.batch(...operations)`                                                   | Combine writes into a single transaction                    |
+| `dynamicGrant / dynamicRevoke / dynamicCheck` + `GrantParams / RevokeParams / CheckParams` | Runtime dispatch with discriminated-union safety       |
+
 ## Generated SDK Usage
 
-The generated SDK provides type-safe methods for all your schema operations:
+The generated SDK provides type-safe methods for every schema surface above. Subject and resource literals are validated at compile time from the relations declared in your schema.
+
+Every generated method returns a pure `Operation<T>` — pass your SpiceDB client to `.execute(client)` to run it. (For a pre-bound `.execute()` with no args, use [`createPermissions(client)`](#fluent-builder-api).)
+
+### Grants and revokes (single or batched subjects)
 
 ```typescript
 import { permissions } from "./generated/permissions";
 
-// ✅ Type-safe operations - TypeScript will catch typos and invalid combinations
+// Single subject
 await permissions.document.grant
   .editor("user:alice", "document:doc1")
-  .execute();
-await permissions.document.check.view("user:bob", "document:doc1").execute();
-await permissions.folder.find.byOwner("user:alice").execute();
+  .execute(spicedbClient);
 
-// ❌ TypeScript errors for invalid operations
+// Multiple subjects in one call — produces one TOUCH update per subject
+await permissions.document.grant
+  .editor(["user:alice", "user:bob"], "document:doc1")
+  .execute(spicedbClient);
+
+await permissions.document.revoke
+  .viewer("user:charlie", "document:doc1")
+  .execute(spicedbClient);
+
+// ❌ Compile-time errors for invalid operations
 await permissions.document.grant.invalidRelation("user:alice", "document:doc1"); // Error!
 await permissions.document.check.edit("invalid:type", "document:doc1"); // Error!
 ```
 
+### Permission and relation checks
+
+```typescript
+// Permission check
+await permissions.document.check
+  .view("user:bob", "document:doc1")
+  .execute(spicedbClient);
+
+// Auto-generated relation check (defaults to `is<Relation>`, overridden by `@check:`)
+await permissions.document.check
+  .isOwnedBy("user:alice", "document:doc1")
+  .execute(spicedbClient);
+
+// With strong consistency from a previous write token
+await permissions.document.check
+  .view("user:bob", "document:doc1")
+  .withConsistency(zedToken)
+  .execute(spicedbClient);
+```
+
+### Bulk checks
+
+Check a single permission against many resources in one gRPC round-trip:
+
+```typescript
+const results = await permissions.document
+  .checkBulk("view", "user:alice", [
+    "document:doc1",
+    "document:doc2",
+    "document:doc3",
+  ])
+  .execute(spicedbClient);
+// → [{ resourceId: "doc1", hasPermission: true }, ...]
+```
+
+### Find and lookup
+
+```typescript
+// Find: which documents does alice own?
+const owned = await permissions.document.find
+  .byOwner("user:alice")
+  .execute(spicedbClient);
+
+// Lookup resources accessible by a subject (LookupResources)
+const viewable = await permissions.document.lookup
+  .resources("user:alice", "view")
+  .execute(spicedbClient);
+
+// Lookup subjects with access to a resource (LookupSubjects)
+const editors = await permissions.document.lookup
+  .subjects("document:doc1", "edit", "user")
+  .execute(spicedbClient);
+```
+
+### Filtered bulk delete
+
+```typescript
+// Revoke everything alice has on document:doc1
+await permissions.document
+  .deleteAll({ relation: "editor", subjectType: "user", subjectId: "alice" })
+  .execute(spicedbClient);
+
+// Wipe all relationships for a deleted resource
+await permissions.document.deleteAll({ resourceId: "doc1" }).execute(spicedbClient);
+```
+
+### Transactions (batched writes)
+
+`permissions.batch(...)` combines any number of grant/revoke operations into a single
+`WriteRelationships` call and returns `{ token, succeeded, operationCount }`:
+
+```typescript
+const result = await permissions
+  .batch(
+    permissions.document.grant.editor("user:alice", "document:doc1"),
+    permissions.document.grant.viewer(["user:bob", "user:charlie"], "document:doc1"),
+    permissions.folder.revoke.editor("user:dave", "folder:f1"),
+  )
+  .execute(spicedbClient);
+```
+
+### Dynamic dispatch (runtime-typed)
+
+For admin tools, UI builders, or anywhere the operation shape isn't known until runtime,
+the generator emits discriminated unions and dispatcher functions:
+
+```typescript
+import {
+  dynamicGrant,
+  dynamicCheck,
+  type GrantParams,
+  type CheckParams,
+} from "./generated/permissions";
+
+const params: GrantParams = {
+  objectType: "document", // narrows allowed `relation` and `subject` types
+  relation: "editor",
+  subject: "user:alice",
+  resource: "document:doc1",
+};
+
+await dynamicGrant(params).execute(spicedbClient);
+```
+
+TypeScript enforces, per `objectType`, that `relation`, `subject`, and `resource` match the
+schema — you can't accidentally grant a `folder` relation with a `document` resource.
+
 ## Fluent Builder API
 
-For cases where you need dynamic operations or are migrating from string-based APIs, use the fluent builder:
+For cases where you need dynamic operations or are migrating from string-based APIs, use the fluent builder. Every method comes in two flavors:
+
+- **`createPermissions(client)`** returns a `Permissions` instance with the client already bound — call `.execute()` with no args.
+- **`Operations.*`** static builders produce pure `Operation<T>` values you can serialize, store, or run later with `op.execute(client)` / `perms.execute(op)`.
+
+### Grants, revokes, and batch transactions
 
 ```typescript
 import {
@@ -184,31 +330,114 @@ import {
 
 const perms = createPermissions(spicedbClient);
 
-// Grant permissions
+// Single grant
 await perms
   .grant("editor")
   .subject("user:alice")
   .resource("document:doc1")
   .execute();
 
-// Check permissions
-const hasPermission = await perms
-  .check("view")
-  .subject("user:bob")
+// Multi-subject grant in a single gRPC call
+await perms
+  .grant("viewer")
+  .subject(["user:alice", "user:bob", "user:charlie"])
   .resource("document:doc1")
   .execute();
 
-perms.batch()
+// Batch — every .add() is written in one WriteRelationships call
+await perms
+  .batch()
   .add(perms.grant("viewer").subject("user:charlie").resource("folder:f1"))
   .add(perms.revoke("editor").subject("user:alice").resource("document:doc1"))
-  .execute()
+  .execute();
+```
 
-// Use static builders for pure operations
+### Checks (single and bulk)
+
+```typescript
+const canView = await perms
+  .check("view")
+  .subject("user:bob")
+  .resource("document:doc1")
+  .withConsistency(zedToken) // optional strong consistency
+  .execute();
+
+// Bulk check — one CheckBulkPermissions gRPC call for many resources
+const bulk = await Operations.bulkCheck("view", "user:alice", [
+  "document:doc1",
+  "document:doc2",
+]).execute(spicedbClient);
+// → [{ resourceId: "doc1", hasPermission: true }, ...]
+```
+
+### Lookup and multi-permission lookup
+
+```typescript
+// Which documents can alice view?
+const accessible = await perms
+  .lookup()
+  .resourcesAccessibleBy("user:alice")
+  .withPermission("view")
+  .ofType("document")
+  .execute();
+
+// Who can edit document:doc1?
+const editors = await perms
+  .lookup()
+  .subjectsWithAccessTo("document:doc1")
+  .withPermission("edit")
+  .ofType("user")
+  .execute();
+
+// `withPermissions` fans out one LookupSubjects call per permission in parallel,
+// returning a Map<subjectId, highestPermission> with first-wins semantics
+const matrix = await perms
+  .lookup()
+  .subjectsWithAccessTo("document:doc1")
+  .ofType("user")
+  .withPermissions(["edit", "view"]);
+// → Map { "alice" => "edit", "bob" => "view" }
+```
+
+### Find (ReadRelationships)
+
+`find()` exposes `ReadRelationships` directly. Wildcards on the subject restrict to a type without an id:
+
+```typescript
+const aliceEditorRows = await perms
+  .find()
+  .relation("editor")
+  .subject("user:alice")
+  .execute();
+
+// All `collaborator` relationships held by any user
+const allUserCollabs = await Operations.find()
+  .relation("collaborator")
+  .subject("user:*")
+  .execute(spicedbClient);
+```
+
+### Filtered delete
+
+```typescript
 const deleteOp = Operations.delete().where({
   resourceType: "document",
   resourceId: "doc1",
 });
 await perms.execute(deleteOp);
+```
+
+### Serialization and debugging
+
+Every operation implements `toJSON()`, so you can log, persist to an audit table, or replay later:
+
+```typescript
+const op = Operations.grant("editor")
+  .subject(["user:alice", "user:bob"])
+  .resource("document:doc1");
+
+JSON.stringify(op);
+// {"operation":"grant","relation":"editor","subjects":["user:alice","user:bob"],"resources":["document:doc1"]}
 ```
 
 ## API Reference
@@ -231,12 +460,15 @@ Performs semantic analysis on a parsed schema.
 const { augmentedAst, errors, isValid } = analyzeSpiceDbSchema(ast);
 ```
 
-#### `generateSDK(schema: AugmentedSchemaAST): string`
+#### `generateSDK(schema: AugmentedSchemaAST, parserImport?: string): string`
 
-Generates TypeScript code for a type-safe permissions SDK.
+Generates TypeScript code for a type-safe permissions SDK. `parserImport` defaults to `@schoolai/spicedb-zed-schema-parser/builder` and lets monorepo consumers point at a local builder package or a custom re-export.
 
 ```typescript
 const generatedCode = generateSDK(augmentedAst);
+
+// or, in a monorepo:
+const generatedCode = generateSDK(augmentedAst, "@myorg/spicedb-builder");
 ```
 
 ### Builder Classes
@@ -247,14 +479,16 @@ Creates a permissions instance with bound SpiceDB client.
 
 #### `Operations` (Static Builder)
 
-Provides static methods for creating pure operations:
+Provides static methods for creating pure operations. Each returns an `Operation<T>` that you can serialize, compose, or execute with `op.execute(client)`.
 
-- `Operations.grant(relation: string)`
-- `Operations.revoke(relation: string)`
-- `Operations.check(permission: string)`
-- `Operations.find()`
-- `Operations.delete()`
-- `Operations.batch()`
+- `Operations.grant(relation: string)` → `WriteOperation`
+- `Operations.revoke(relation: string)` → `WriteOperation`
+- `Operations.check(permission: string)` → `CheckOperation`
+- `Operations.bulkCheck(permission: string, subject: string, resources: string[])` → `BulkCheckOperation`
+- `Operations.find()` → `QueryOperation` (`ReadRelationships`)
+- `Operations.lookup()` → `LookupOperation` (`LookupResources` / `LookupSubjects`)
+- `Operations.delete()` → `DeleteOperation`
+- `Operations.batch()` → `Transaction`
 
 ## Schema Features Supported
 
@@ -314,19 +548,21 @@ Common error types:
                            │                     │                     │
                            ▼                     ▼                     ▼
                    ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐
-                   │ AST          │    │ Augmented AST   │    │ TypeScript   │
-                   │              │    │ + Type Info     │    │ SDK Code     │
-                   └──────────────┘    └─────────────────┘    └──────────────┘
-                                                                       ▲
-                                                                       │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Fluent Builder Library                                                      │
-│ ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐                  │
-│ │ Operations  │───▶│ Fluent API   │───▶│ SpiceDB Client  │                  │
-│ │ Builder     │    │ (Chainable)  │    │ (gRPC)          │                  │
-│ └─────────────┘    └──────────────┘    └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+                   │ AST          │    │ Augmented AST   │    │ Generated    │
+                   │              │    │ + Type Info     │    │ permissions  │
+                   └──────────────┘    └─────────────────┘    │ + dynamic*   │
+                                                              └──────┬───────┘
+                                                                     │
+                       Generated SDK (type-safe facade) ──────────┐  │
+                                                                  ▼  ▼
+                       Fluent Builder ─────────────────────▶ Operation<T> ──▶ SpiceDB (gRPC)
+                       (string-based, dynamic)               grant/revoke/
+                                                             check/bulkCheck/
+                                                             find/lookup/
+                                                             delete/batch
 ```
+
+Both the generated SDK and the raw fluent builder produce the same `Operation<T>` shape that ultimately drives the `@authzed/authzed-node` gRPC client. The generator just narrows the string parameters into literal types derived from your schema.
 
 ## Development
 
