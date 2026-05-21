@@ -15,8 +15,13 @@ const schema1 = fs.readFileSync(
 )
 
 const schema2 = fs.readFileSync(
-  new URL('../fixtures/002-schema.zed', import.meta.url),
-  'utf-8',
+    new URL('../fixtures/002-schema.zed', import.meta.url),
+    'utf-8',
+)
+
+const schema3 = fs.readFileSync(
+    new URL('../fixtures/003-schema.zed', import.meta.url),
+    'utf-8',
 )
 
 // Helper Functions
@@ -363,4 +368,14 @@ describe('parseSpiceDBSchema for 002-schema.zed', () => {
     }).not.toThrow()
     expect(result).toBeDefined()
   })
+})
+
+describe('parseSpiceDBSchema for 003-schema.zed', () => {
+    it('parses the schema with namespace prefixes (fixture 3) without error', () => {
+        let result
+        expect(() => {
+            result = parseSpiceDBSchema(schema3)
+        }).not.toThrow()
+        expect(result).toBeDefined()
+    })
 })

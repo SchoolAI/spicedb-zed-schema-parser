@@ -7,7 +7,7 @@ import { CstParser, createToken, ICstVisitor, Lexer } from 'chevrotain'
 // Literals and Identifiers
 const Identifier = createToken({
   name: 'Identifier',
-  pattern: /[a-zA-Z_][a-zA-Z0-9_]*/,
+  pattern: /([a-z][a-z0-9_]*[a-z0-9]\/)*[a-z][a-z0-9_]*[a-z0-9]/,
 })
 const Integer = createToken({ name: 'Integer', pattern: /0|[1-9]\d*/ })
 const StringLiteral = createToken({ name: 'StringLiteral', pattern: /"[^"]*"/ })
